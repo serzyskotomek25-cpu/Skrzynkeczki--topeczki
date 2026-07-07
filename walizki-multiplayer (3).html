@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Walizki — Multiplayer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#100e0b; --panel:#1b1712; --panel-2:#221c15; --line:#3a3226;
+    --brass:#c8a24d; --brass-dim:#8a723b; --cream:#ece3cf; --cream-dim:#a89c85;
+    --trap:#a6392b; --trap-bright:#d4493a; --money:#4f7a56; --money-bright:#6fae7b; --jackpot:#d4af37;
+    --p0:#c8a24d; --p1:#5fae8f; --p2:#c96a8a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(200,162,77,0.08), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(166,57,43,0.06), transparent 55%),
+      var(--bg);
+    color:var(--cream); font-family:'Space Grotesk',sans-serif; line-height:1.6;
+  }
+  .wrap{max-width:900px; margin:0 auto; padding:50px 24px 100px;}
+  h1,h2,h3{font-family:'Fraunces',serif; margin:0;}
+  .kicker{font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.24em; text-transform:uppercase; color:var(--brass); margin-bottom:14px;}
+  .titlebar{text-align:center; margin-bottom:44px;}
+  .titlebar h1{font-weight:900; font-size:clamp(38px,7vw,58px); letter-spacing:-0.02em;}
+  .titlebar p{color:var(--cream-dim); font-family:'Fraunces',serif; font-style:italic; font-size:17px; margin-top:6px;}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:28px; margin-bottom:22px;}
+  .btn{
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14.5px;
+    padding:12px 22px; border-radius:6px; border:1px solid var(--brass-dim);
+    background:linear-gradient(160deg,#2a2216,#1c1710); color:var(--cream);
+    cursor:pointer; transition:transform .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .btn:hover{border-color:var(--brass); transform:translateY(-1px);}
+  .btn.primary{background:linear-gradient(160deg,#c8a24d,#a67f34); color:#191410; border-color:#a67f34;}
+  .btn.primary:hover{background:linear-gradient(160deg,#d8b45f,#b68d3f);}
+  .btn.danger{border-color:rgba(166,57,43,.6);}
+  .btn.danger:hover{border-color:var(--trap-bright);}
+  .btn.ghost{background:transparent;}
+  .btn:disabled{opacity:.35; cursor:not-allowed; transform:none;}
+  .btnrow{display:flex; gap:12px; flex-wrap:wrap; margin-top:18px;}
+
+  .form-group{margin-bottom:20px;}
+  .form-group label{display:block; font-family:'Fraunces',serif; font-size:16px; margin-bottom:8px; color:var(--cream);}
+  .form-group input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:6px;
+    padding:12px 14px; color:var(--cream); font-family:'Space Grotesk',sans-serif; font-size:15px;
+  }
+  .form-group input:focus{outline:none; border-color:var(--brass);}
+
+  .status-bar{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:14px 18px; margin-bottom:20px;
+    font-family:'JetBrains Mono',monospace; font-size:12px;
+  }
+  .status-bar .badge{color:var(--brass); font-weight:600;}
+  .status-bar .online{color:var(--money-bright);}
+  .status-bar .offline{color:var(--cream-dim);}
+
+  .turn-banner{
+    display:flex; align-items:center; gap:12px; margin-bottom:18px;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:14px 18px;
+  }
+  .turn-banner .dot{width:14px; height:14px; border-radius:50%; flex-shrink:0;}
+  .turn-banner .txt{font-family:'Fraunces',serif; font-size:19px;}
+  .turn-banner .txt b{color:var(--brass);}
+  .turn-banner .sub{margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--cream-dim); text-transform:uppercase; letter-spacing:.05em;}
+
+  .board-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:9px; margin:20px 0;}
+  .bc{
+    aspect-ratio:1; border-radius:6px; border:1px solid var(--line); background:var(--panel-2);
+    display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;
+    font-size:13px; color:var(--cream-dim); cursor:pointer; transition:transform .15s ease, border-color .15s ease;
+  }
+  .bc:hover{border-color:var(--brass); transform:translateY(-2px);}
+  .bc.taken{cursor:default; color:#0d0b08; font-weight:700;}
+  .bc.taken:hover{transform:none;}
+  .bc.selected{border-color:var(--brass); box-shadow:0 0 0 2px rgba(200,162,77,.25);}
+
+  .hand-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:20px 0;}
+  .hcard{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:8px;
+    padding:14px 8px; text-align:center; position:relative; min-height:96px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:border-color .2s ease, transform .2s ease;
+  }
+  .hcard .num{font-family:'Fraunces',serif; font-weight:800; font-size:22px; color:var(--cream);}
+  .hcard .status{font-family:'JetBrains Mono',monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--cream-dim); margin-top:6px;}
+  .hcard.opened-prize{border-color:var(--money); background:linear-gradient(160deg, rgba(79,122,86,.18), var(--panel-2));}
+  .hcard.opened-prize .status{color:var(--money-bright);}
+  .hcard.opened-trap{border-color:var(--trap); background:linear-gradient(160deg, rgba(166,57,43,.2), var(--panel-2));}
+  .hcard.opened-trap .status{color:var(--trap-bright);}
+  .hcard .badge{font-size:20px; margin-top:2px;}
+
+  .boss-tag{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--trap-bright); margin-bottom:10px; display:flex; align-items:center; gap:8px;
+  }
+  .boss-tag::before{content:"●"; color:var(--trap-bright); font-size:9px;}
+  .boss-line{
+    font-family:'Fraunces',serif; font-style:italic; font-size:19px; color:var(--cream);
+    border-left:2px solid var(--brass-dim); padding-left:16px; margin-bottom:6px;
+  }
+  .boss-meta{font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--cream-dim);}
+
+  .room-list{display:grid; gap:12px; margin-top:20px;}
+  .room-card{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:20px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+  }
+  .room-info{flex:1;}
+  .room-info .room-code{font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:700; color:var(--brass); margin-bottom:6px;}
+  .room-info .room-status{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--cream-dim);}
+
+  .players-section{margin:20px 0; padding:20px; background:var(--panel-2); border:1px solid var(--line); border-radius:8px;}
+  .players-list{display:grid; gap:12px;}
+  .player-item{
+    display:flex; align-items:center; gap:12px; padding:10px;
+    background:var(--panel); border-radius:6px; border:1px solid var(--line);
+  }
+  .player-item .dot{width:12px; height:12px; border-radius:50%; flex-shrink:0;}
+  .player-item .name{font-family:'Fraunces',serif; font-size:16px; flex:1;}
+  .player-item .role{font-family:'JetBrains Mono',monospace; font-size:11px; text-transform:uppercase; color:var(--cream-dim);}
+
+  .bank-strip{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--cream-dim);
+    background:var(--panel-2); border:1px solid var(--line); border-radius:6px; padding:10px 16px; margin-bottom:20px;
+  }
+  .bank-strip b{color:var(--jackpot); font-family:'Fraunces',serif; font-size:18px;}
+
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="app"></div>
+</div>
+
+<script>
+// Game state structure
+const ROOM_SYNC_KEY = 'walizki_room_data';
+const PLAYER_COLORS = [
+  '#c8a24d',  // brass
+  '#5fae8f',  // teal
+  '#c96a8a'   // pink
+];
+
+let appState = {
+  screen: 'lobby',  // lobby, room, game, results
+  playerNick: localStorage.getItem('playerNick') || '',
+  playerRole: null, // 'player' or 'boss'
+  roomCode: '',
+  roomData: null,
+  gameState: null
+};
+
+// Initialize with saved data
+function initRoom() {
+  const saved = localStorage.getItem(ROOM_SYNC_KEY);
+  if(saved) appState.roomData = JSON.parse(saved);
+}
+
+function generateRoomCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function createRoom() {
+  const nick = document.getElementById('nickInput').value.trim();
+  if(!nick) { alert('Wpisz nick!'); return; }
+  
+  localStorage.setItem('playerNick', nick);
+  appState.playerNick = nick;
+  appState.roomCode = generateRoomCode();
+  appState.playerRole = 'player';
+  
+  appState.roomData = {
+    code: appState.roomCode,
+    players: [
+      { id: Date.now(), nick: nick, role: 'player', colorIdx: 0 },
+      { id: null, nick: '', role: 'player', colorIdx: 1 },
+      { id: null, nick: '', role: 'boss', colorIdx: 2 }
+    ],
+    gameStarted: false,
+    gameState: null
+  };
+  
+  localStorage.setItem(ROOM_SYNC_KEY, JSON.stringify(appState.roomData));
+  appState.screen = 'room';
+  render();
+}
+
+function joinRoom() {
+  const nick = document.getElementById('nickInput').value.trim();
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  
+  if(!nick || !code) { alert('Wpisz nick i kod pokoju!'); return; }
+  
+  const saved = localStorage.getItem(`room_${code}`);
+  if(!saved) { alert('Pokój nie znaleziony!'); return; }
+  
+  appState.roomData = JSON.parse(saved);
+  localStorage.setItem('playerNick', nick);
+  appState.playerNick = nick;
+  appState.roomCode = code;
+  
+  // Find available slot
+  const emptySlot = appState.roomData.players.find(p => !p.id);
+  if(!emptySlot) { alert('Pokój jest pełny!'); return; }
+  
+  emptySlot.id = Date.now();
+  emptySlot.nick = nick;
+  appState.playerRole = emptySlot.role;
+  
+  localStorage.setItem(ROOM_SYNC_KEY, JSON.stringify(appState.roomData));
+  appState.screen = 'room';
+  render();
+}
+
+function syncRoomData() {
+  if(!appState.roomCode) return;
+  
+  const saved = localStorage.getItem(ROOM_SYNC_KEY);
+  if(saved) {
+    appState.roomData = JSON.parse(saved);
+  }
+}
+
+function startGame() {
+  if(!appState.roomData.players.every(p => p.id)) {
+    alert('Wszyscy gracze muszą dołączyć do gry!');
+    return;
+  }
+  
+  appState.roomData.gameStarted = true;
+  appState.roomData.gameState = initGameState();
+  localStorage.setItem(ROOM_SYNC_KEY, JSON.stringify(appState.roomData));
+  appState.screen = 'game';
+  render();
+}
+
+function initGameState() {
+  return {
+    phase: 'selection',  // selection, negotiation, results
+    selectedBoxes: [],
+    round: 1,
+    players: appState.roomData.players.map(p => ({
+      id: p.id,
+      nick: p.nick,
+      role: p.role,
+      colorIdx: p.colorIdx,
+      bank: 0,
+      boxes: [],
+      trapsHit: 0
+    }))
+  };
+}
+
+function toggleBoxSelection(num) {
+  if(!appState.playerRole || appState.playerRole !== 'player') return;
+  
+  const game = appState.roomData.gameState;
+  const idx = game.selectedBoxes.indexOf(num);
+  
+  if(idx >= 0) {
+    game.selectedBoxes.splice(idx, 1);
+  } else {
+    if(game.selectedBoxes.length < 5) {
+      game.selectedBoxes.push(num);
+    }
+  }
+  
+  localStorage.setItem(ROOM_SYNC_KEY, JSON.stringify(appState.roomData));
+  render();
+}
+
+function confirmSelection() {
+  const game = appState.roomData.gameState;
+  if(game.selectedBoxes.length === 0) {
+    alert('Wybierz co najmniej jedną walizkę!');
+    return;
+  }
+  
+  game.phase = 'negotiation';
+  localStorage.setItem(ROOM_SYNC_KEY, JSON.stringify(appState.roomData));
+  render();
+}
+
+function endGame() {
+  appState.screen = 'room';
+  appState.roomData.gameStarted = false;
+  appState.roomData.gameState = null;
+  localStorage.setItem(ROOM_SYNC_KEY, JSON.stringify(appState.roomData));
+  render();
+}
+
+function render() {
+  syncRoomData();
+  let html = '';
+  
+  if(appState.screen === 'lobby') {
+    html = `
+      <div class="titlebar">
+        <h1>WALIZKI</h1>
+        <p>Multiplayer Edition</p>
+      </div>
+      <div class="panel">
+        <div class="kicker">Witaj w grze</div>
+        <div class="form-group">
+          <label>Twój nick</label>
+          <input type="text" id="nickInput" placeholder="np. Gracze1">
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div>
+            <button class="btn primary" style="width:100%;" onclick="createRoom()">Nowa gra</button>
+            <div style="font-size:13px; color:var(--cream-dim); text-align:center; margin-top:8px;">Stwórz pokój</div>
+          </div>
+          <div>
+            <button class="btn ghost" style="width:100%; border-color:var(--brass);" onclick="appState.screen='join'; render();">Dołącz</button>
+            <div style="font-size:13px; color:var(--cream-dim); text-align:center; margin-top:8px;">Po kodzie pokoju</div>
+          </div>
+        </div>
+      </div>`;
+  }
+  
+  else if(appState.screen === 'join') {
+    html = `
+      <div class="titlebar">
+        <h1>WALIZKI</h1>
+        <p>Dołącz do gry</p>
+      </div>
+      <div class="panel">
+        <div class="form-group">
+          <label>Twój nick</label>
+          <input type="text" id="nickInput" placeholder="np. Gracze2">
+        </div>
+        <div class="form-group">
+          <label>Kod pokoju</label>
+          <input type="text" id="codeInput" placeholder="np. ABC123" style="text-transform:uppercase;">
+        </div>
+        <div class="btnrow">
+          <button class="btn primary" onclick="joinRoom()">Dołącz do pokoju</button>
+          <button class="btn ghost" onclick="appState.screen='lobby'; render();">Wróć</button>
+        </div>
+      </div>`;
+  }
+  
+  else if(appState.screen === 'room') {
+    const room = appState.roomData;
+    const allReady = room.players.every(p => p.id);
+    
+    html = `
+      <div class="titlebar">
+        <h1>POKÓJ</h1>
+        <p>Kod: <strong style="color:var(--brass);">${room.code}</strong></p>
+      </div>
+      <div class="panel">
+        <div class="status-bar">
+          <div>Gracze gotowi: <span class="badge">${room.players.filter(p => p.id).length}/3</span></div>
+          <div class="online">${allReady ? '✓ WSZYSCY GOTOWI' : '⏳ OCZEKIWANIE'}</div>
+        </div>
+        
+        <h2 style="margin-bottom:16px;">Gracze w pokoju</h2>
+        <div class="players-list">
+          ${room.players.map((p, i) => {
+            let roleText = p.role === 'boss' ? 'Boss (przeciwnik)' : 'Gracz (zespół)';
+            let statusText = p.id ? p.nick : '—';
+            let statusClass = p.id ? '' : 'offline';
+            return `
+              <div class="player-item">
+                <div class="dot" style="background:${PLAYER_COLORS[i]}"></div>
+                <div class="name">${statusText}</div>
+                <div class="role">${roleText}</div>
+              </div>`;
+          }).join('')}
+        </div>
+        
+        <div class="btnrow" style="margin-top:24px;">
+          ${allReady && appState.playerRole ? 
+            `<button class="btn primary" onclick="startGame()">Rozpocznij grę</button>` :
+            `<button class="btn primary" disabled>Czekaj na graczy...</button>`
+          }
+          <button class="btn ghost" onclick="appState.screen='lobby'; appState.roomData=null; render();">Wyjdź z pokoju</button>
+        </div>
+      </div>`;
+  }
+  
+  else if(appState.screen === 'game') {
+    const game = appState.roomData.gameState;
+    
+    if(game.phase === 'selection') {
+      const isBoss = appState.playerRole === 'boss';
+      
+      html = `
+        <div class="titlebar">
+          <h1>WYBÓR WALIZEK</h1>
+          <p>${isBoss ? 'Czekaj na graczy...' : 'Macie 5 minut na wybór'}</p>
+        </div>
+        <div class="panel">
+          <div class="turn-banner">
+            <div class="txt">Runda <b>${game.round}</b></div>
+            <div class="sub">Gracze zbierają walizki</div>
+          </div>
+          
+          ${!isBoss ? `
+            <h3 style="margin-bottom:12px;">Wybierz do 5 walizek (razem z kolegą)</h3>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--cream-dim); margin-bottom:16px;">
+              Wybrane: <b style="color:var(--brass);">${game.selectedBoxes.length}/5</b>
+            </div>
+          ` : `
+            <div style="text-align:center; padding:40px 20px; color:var(--cream-dim);">
+              <div style="font-size:18px; margin-bottom:12px;">👹 BOSS CZEKA</div>
+              <p>Gracze wybierają walizki...</p>
+              <div style="margin-top:20px; font-family:'JetBrains Mono',monospace; font-size:12px;">
+                Wybrane: <b style="color:var(--brass);">${game.selectedBoxes.length}/5</b>
+              </div>
+            </div>
+          `}
+          
+          <div class="board-grid">
+            ${Array.from({length:25}, (_, i) => {
+              const num = i + 1;
+              const selected = game.selectedBoxes.includes(num);
+              return `<div class="bc ${selected ? 'selected' : ''}" onclick="toggleBoxSelection(${num})" style="${!isBoss ? 'cursor:pointer;' : 'cursor:default; opacity:0.6;'}">${num}</div>`;
+            }).join('')}
+          </div>
+          
+          ${!isBoss ? `
+            <button class="btn primary" onclick="confirmSelection()" style="width:100%; margin-top:20px;">Zatwierdzam — Zaczynamy grę</button>
+          ` : ''}
+        </div>`;
+    }
+    
+    else if(game.phase === 'negotiation') {
+      const isBoss = appState.playerRole === 'boss';
+      
+      html = `
+        <div class="titlebar">
+          <h1>NEGOCJACJE</h1>
+          <p>Boss atakuje — Gracze broniąsię</p>
+        </div>
+        <div class="panel">
+          <div class="turn-banner">
+            <div class="txt">Runda <b>${game.round}</b></div>
+            <div class="sub">Gracze wyboru dla każdej walizki</div>
+          </div>
+          
+          ${isBoss ? `
+            <div style="text-align:center; padding:40px 20px;">
+              <div class="boss-tag">BOSS</div>
+              <div class="boss-line">„Wbijam się w waszą grę!"</div>
+              <div class="boss-meta">Atakuj walizki, podawaj podpowiedzi, manipuluj...</div>
+              <div style="margin-top:20px; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--cream-dim);">
+                Walizki w grze: <b>${game.selectedBoxes.length}</b>
+              </div>
+            </div>
+            <button class="btn primary" onclick="endGame()" style="width:100%;">Przejdź do wyników (demo)</button>
+          ` : `
+            <div style="text-align:center; padding:40px 20px; color:var(--cream-dim);">
+              <div style="font-size:18px; margin-bottom:12px;">🎲 NEGOCJACJE TRWAJĄ</div>
+              <p>Czekaj na boss'a...</p>
+              <div style="margin-top:20px;">
+                <strong style="color:var(--brass);">${game.selectedBoxes.length}</strong> walizek w grze
+              </div>
+            </div>
+            <button class="btn primary" onclick="endGame()" style="width:100%;">Przejdź do wyników (demo)</button>
+          `}
+        </div>`;
+    }
+  }
+  
+  document.getElementById('app').innerHTML = html;
+}
+
+initRoom();
+render();
+
+// Sync state every 2 seconds
+setInterval(() => {
+  if(appState.screen === 'room' || appState.screen === 'game') {
+    syncRoomData();
+    render();
+  }
+}, 2000);
+</script>
+</body>
+</html>
